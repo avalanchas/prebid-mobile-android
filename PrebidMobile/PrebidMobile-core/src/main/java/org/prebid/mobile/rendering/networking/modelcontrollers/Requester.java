@@ -19,6 +19,9 @@ package org.prebid.mobile.rendering.networking.modelcontrollers;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.AsyncTask;
+
+import androidx.annotation.NonNull;
+
 import org.prebid.mobile.LogUtil;
 import org.prebid.mobile.api.exceptions.AdException;
 import org.prebid.mobile.configuration.AdUnitConfiguration;
@@ -41,7 +44,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class Requester {
+public abstract class Requester implements AdIdFetchListener{
 
     private static final String TAG = Requester.class.getSimpleName();
 
@@ -116,7 +119,7 @@ public abstract class Requester {
 
         UserConsentManager userConsentManager = ManagersResolver.getInstance().getUserConsentManager();
         if (userConsentManager.canAccessDeviceData()) {
-            AdIdManager.initAdId(context, new AdIdInitListener(this));
+            AdIdManager.initAdId(context, this);
         } else {
             AdIdManager.setAdId(null);
             makeAdRequest();
@@ -161,7 +164,7 @@ public abstract class Requester {
         return urlBuilder.buildUrl();
     }
 
-    protected void sendAdRequest(URLComponents jsonUrlComponents) {
+    protected void sendAdRequest(@NonNull URLComponents jsonUrlComponents) {
         BaseNetworkTask.GetUrlParams params = new BaseNetworkTask.GetUrlParams();
         params.url = jsonUrlComponents.getBaseUrl();
         params.queryParams = jsonUrlComponents.getQueryArgString();
@@ -173,34 +176,15 @@ public abstract class Requester {
         this.networkTask = networkTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, params);
     }
 
-    protected static class AdIdInitListener implements AdIdFetchListener {
+    @Override
+    public void adIdFetchCompletion() {
+        LogUtil.info(TAG, "adIdFetchCompletion");
+        makeAdRequest();
+    }
 
-        private WeakReference<Requester> weakRequester;
-
-        public AdIdInitListener(Requester requester) {
-            weakRequester = new WeakReference<>(requester);
-        }
-
-        @Override
-        public void adIdFetchCompletion() {
-            LogUtil.info(TAG, "adIdFetchCompletion");
-            makeAdRequest();
-        }
-
-        @Override
-        public void adIdFetchFailure() {
-            LogUtil.warning(TAG, "adIdFetchFailure");
-            makeAdRequest();
-        }
-
-        private void makeAdRequest() {
-            Requester requester = weakRequester.get();
-            if (requester == null) {
-                LogUtil.warning(TAG, "Requester is null");
-                return;
-            }
-
-            requester.makeAdRequest();
-        }
+    @Override
+    public void adIdFetchFailure() {
+        LogUtil.warning(TAG, "adIdFetchFailure");
+        makeAdRequest();
     }
 }

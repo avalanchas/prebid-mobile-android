@@ -81,14 +81,13 @@ public class BidRequesterTest {
     @Test
     public void whenFetchAdIdFailedOrSucceed_MakeRequest() {
         BidRequester mockRequester = mock(BidRequester.class);
-        Requester.AdIdInitListener adIdInitListener = new Requester.AdIdInitListener(mockRequester);
 
         // Fetch successful
-        adIdInitListener.adIdFetchCompletion();
+        mockRequester.adIdFetchCompletion();
         verify(mockRequester, times(1)).makeAdRequest();
 
         // Fetch failure
-        adIdInitListener.adIdFetchFailure();
+        mockRequester.adIdFetchFailure();
         verify(mockRequester, times(2)).makeAdRequest();
     }
 }
