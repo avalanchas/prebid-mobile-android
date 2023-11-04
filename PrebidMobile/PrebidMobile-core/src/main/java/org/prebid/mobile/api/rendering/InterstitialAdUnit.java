@@ -16,14 +16,21 @@
 
 package org.prebid.mobile.api.rendering;
 
+import static org.prebid.mobile.api.rendering.BaseInterstitialAdUnit.InterstitialAdUnitState.READY_FOR_LOAD;
+import static org.prebid.mobile.api.rendering.BaseInterstitialAdUnit.InterstitialAdUnitState.READY_TO_DISPLAY_GAM;
+
 import android.content.Context;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
 import org.prebid.mobile.AdSize;
 import org.prebid.mobile.LogUtil;
 import org.prebid.mobile.api.data.AdUnitFormat;
 import org.prebid.mobile.api.exceptions.AdException;
 import org.prebid.mobile.api.rendering.listeners.InterstitialAdUnitListener;
+import org.prebid.mobile.api.rendering.pluginrenderer.PluginEventListener;
+import org.prebid.mobile.api.rendering.pluginrenderer.PrebidMobilePluginRegister;
 import org.prebid.mobile.configuration.AdUnitConfiguration;
 import org.prebid.mobile.rendering.bidding.data.bid.Bid;
 import org.prebid.mobile.rendering.bidding.interfaces.InterstitialEventHandler;
@@ -31,9 +38,6 @@ import org.prebid.mobile.rendering.bidding.interfaces.StandaloneInterstitialEven
 import org.prebid.mobile.rendering.bidding.listeners.InterstitialEventListener;
 
 import java.util.EnumSet;
-
-import static org.prebid.mobile.api.rendering.BaseInterstitialAdUnit.InterstitialAdUnitState.READY_FOR_LOAD;
-import static org.prebid.mobile.api.rendering.BaseInterstitialAdUnit.InterstitialAdUnitState.READY_TO_DISPLAY_GAM;
 
 public class InterstitialAdUnit extends BaseInterstitialAdUnit {
 
@@ -64,7 +68,7 @@ public class InterstitialAdUnit extends BaseInterstitialAdUnit {
         Context context,
         String configId
     ) {
-        this(context, configId, EnumSet.of(AdUnitFormat.DISPLAY), null);
+        this(context, configId, EnumSet.of(AdUnitFormat.BANNER, AdUnitFormat.VIDEO), null);
     }
 
     /**
@@ -86,7 +90,7 @@ public class InterstitialAdUnit extends BaseInterstitialAdUnit {
         String configId,
         InterstitialEventHandler eventHandler
     ) {
-        this(context, configId, EnumSet.of(AdUnitFormat.DISPLAY), eventHandler);
+        this(context, configId, EnumSet.of(AdUnitFormat.BANNER, AdUnitFormat.VIDEO), eventHandler);
     }
 
     /**
@@ -109,7 +113,7 @@ public class InterstitialAdUnit extends BaseInterstitialAdUnit {
 
         AdUnitConfiguration adUnitConfiguration = new AdUnitConfiguration();
         adUnitConfiguration.setConfigId(configId);
-        adUnitConfiguration.setAdFormats(adUnitFormats);
+        adUnitConfiguration.setAdUnitFormats(adUnitFormats);
         init(adUnitConfiguration);
     }
 
@@ -162,16 +166,24 @@ public class InterstitialAdUnit extends BaseInterstitialAdUnit {
         this.adUnitEventsListener = adUnitEventsListener;
     }
 
+    public void setPluginEventListener(PluginEventListener pluginEventListener) {
+        PrebidMobilePluginRegister.getInstance().registerEventListener(pluginEventListener, adUnitConfig.getFingerprint());
+    }
+
     public void setMinSizePercentage(AdSize minSizePercentage) {
         adUnitConfig.setMinSizePercentage(minSizePercentage);
     }
 
 
+    @Override
     public void destroy() {
         super.destroy();
         if (eventHandler != null) {
             eventHandler.destroy();
         }
+        adUnitEventsListener = null;
+
+        PrebidMobilePluginRegister.getInstance().unregisterEventListener(adUnitConfig.getFingerprint());
     }
 
 

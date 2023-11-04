@@ -38,6 +38,24 @@ object TestCaseRepository {
             GamOriginalApiVideoBannerActivity::class.java,
         ),
         TestCase(
+            R.string.gam_original_multiformat_banner,
+            AdFormat.MULTIFORMAT,
+            IntegrationKind.GAM_ORIGINAL,
+            GamOriginalApiMultiformatBannerActivity::class.java,
+        ),
+        TestCase(
+            R.string.gam_original_multiformat_banner_video_native_in_app,
+            AdFormat.MULTIFORMAT,
+            IntegrationKind.GAM_ORIGINAL,
+            GamOriginalApiMultiformatBannerVideoNativeInAppActivity::class.java,
+        ),
+        TestCase(
+            R.string.gam_original_multiformat_banner_video_native_styles,
+            AdFormat.MULTIFORMAT,
+            IntegrationKind.GAM_ORIGINAL,
+            GamOriginalApiMultiformatBannerVideoNativeStylesActivity::class.java,
+        ),
+        TestCase(
             R.string.gam_original_display_interstitial,
             AdFormat.DISPLAY_INTERSTITIAL,
             IntegrationKind.GAM_ORIGINAL,
@@ -48,6 +66,12 @@ object TestCaseRepository {
             AdFormat.VIDEO_INTERSTITIAL,
             IntegrationKind.GAM_ORIGINAL,
             GamOriginalApiVideoInterstitialActivity::class.java,
+        ),
+        TestCase(
+            R.string.gam_original_multiformat_interstitial,
+            AdFormat.MULTIFORMAT,
+            IntegrationKind.GAM_ORIGINAL,
+            GamOriginalApiMultiformatInterstitialActivity::class.java,
         ),
         TestCase(
             R.string.gam_original_video_rewarded,
@@ -169,7 +193,7 @@ object TestCaseRepository {
         ),
         TestCase(
             R.string.in_app_video_interstitial_multi_format,
-            AdFormat.VIDEO_INTERSTITIAL,
+            AdFormat.MULTIFORMAT,
             IntegrationKind.NO_AD_SERVER,
             InAppVideoInterstitialMultiFormatActivity::class.java,
         ),

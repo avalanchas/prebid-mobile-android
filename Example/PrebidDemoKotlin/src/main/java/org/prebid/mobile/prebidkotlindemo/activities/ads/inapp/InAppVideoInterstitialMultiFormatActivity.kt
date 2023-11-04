@@ -27,7 +27,7 @@ import java.util.*
 class InAppVideoInterstitialMultiFormatActivity : BaseAdActivity() {
 
     companion object {
-        const val CONFIG_ID = "imp-prebid-display-interstitial-320-480-random"
+        const val CONFIG_ID = "prebid-demo-display-interstitial-320-480-random"
     }
 
     private var adUnit: InterstitialAdUnit? = null
@@ -47,7 +47,7 @@ class InAppVideoInterstitialMultiFormatActivity : BaseAdActivity() {
     }
 
     private fun createAd() {
-        adUnit = InterstitialAdUnit(this, CONFIG_ID, EnumSet.of(AdUnitFormat.VIDEO, AdUnitFormat.DISPLAY))
+        adUnit = InterstitialAdUnit(this, CONFIG_ID, EnumSet.of(AdUnitFormat.VIDEO, AdUnitFormat.BANNER))
         adUnit?.setInterstitialAdUnitListener(object : InterstitialAdUnitListener {
             override fun onAdLoaded(interstitialAdUnit: InterstitialAdUnit?) {
                 adUnit?.show()

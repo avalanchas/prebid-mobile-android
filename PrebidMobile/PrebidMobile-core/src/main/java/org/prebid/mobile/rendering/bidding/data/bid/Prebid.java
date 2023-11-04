@@ -16,28 +16,37 @@
 
 package org.prebid.mobile.rendering.bidding.data.bid;
 
+import static org.prebid.mobile.rendering.utils.helpers.Utils.addValue;
+
 import android.text.TextUtils;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.prebid.mobile.AdSize;
+import org.prebid.mobile.LogUtil;
 import org.prebid.mobile.PrebidMobile;
 import org.prebid.mobile.TargetingParams;
+import org.prebid.mobile.api.rendering.pluginrenderer.PrebidMobilePluginRegister;
+import org.prebid.mobile.api.rendering.pluginrenderer.PrebidMobilePluginRenderer;
 import org.prebid.mobile.configuration.AdUnitConfiguration;
+import org.prebid.mobile.rendering.models.openrtb.bidRequests.PluginRendererList;
+import org.prebid.mobile.rendering.models.openrtb.bidRequests.mapper.PluginRendererListMapper;
 import org.prebid.mobile.rendering.utils.helpers.Utils;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-
-import static org.prebid.mobile.rendering.utils.helpers.Utils.addValue;
 
 public class Prebid {
 
     private Cache cache;
     private HashMap<String, String> targeting = new HashMap<>();
+    private HashMap<String, String> meta = new HashMap<>();
     private String type;
     private String winEventUrl;
     private String impEventUrl;
@@ -56,6 +65,10 @@ public class Prebid {
         return targeting;
     }
 
+    public HashMap<String, String> getMeta() {
+        return meta;
+    }
+
     public String getType() {
         return type;
     }
@@ -69,6 +82,8 @@ public class Prebid {
         prebid.type = jsonObject.optString("type");
         parseEvents(prebid, jsonObject.optJSONObject("events"));
         toHashMap(prebid.targeting, jsonObject.optJSONObject("targeting"));
+        toHashMap(prebid.meta, jsonObject.optJSONObject("meta"));
+
         return prebid;
     }
 
@@ -101,9 +116,9 @@ public class Prebid {
     }
 
     public static JSONObject getJsonObjectForBidRequest(
-        String accountId,
-        boolean isVideo,
-        boolean isOriginalAdUnit
+            String accountId,
+            boolean isVideo,
+            AdUnitConfiguration config
     ) {
         JSONObject prebid = getPrebidObject(accountId);
 
@@ -113,16 +128,33 @@ public class Prebid {
             Utils.addValue(cache, "vastxml", new JSONObject());
         }
 
-        if (PrebidMobile.isUseCacheForReportingWithRenderingApi() || isOriginalAdUnit) {
+        if (PrebidMobile.isUseCacheForReportingWithRenderingApi() || config.isOriginalAdUnit()) {
             Utils.addValue(prebid, "cache", cache);
         }
-        Utils.addValue(prebid, "targeting", new JSONObject());
+
+        JSONObject targeting = new JSONObject();
+
+        if (config.isOriginalAdUnit() && config.getAdFormats().size() > 1) {
+            Utils.addValue(targeting, "includeformat", "true");
+        }
+
+        if(PrebidMobile.getIncludeWinnersFlag()){
+            Utils.addValue(targeting, "includewinners", "true");
+        }
+
+        if(PrebidMobile.getIncludeBidderKeysFlag()){
+            Utils.addValue(targeting, "includebidderkeys", "true");
+        }
+
+        Utils.addValue(prebid, "targeting", targeting);
 
         if (!TargetingParams.getAccessControlList().isEmpty()) {
             JSONObject data = new JSONObject();
             Utils.addValue(data, "bidders", new JSONArray(TargetingParams.getAccessControlList()));
             Utils.addValue(prebid, "data", data);
         }
+
+        setPluginRendererList(prebid, config);
 
         return prebid;
     }
@@ -138,6 +170,23 @@ public class Prebid {
         return prebid;
     }
 
+    private static void setPluginRendererList(JSONObject prebid, AdUnitConfiguration adUnitConfiguration) {
+        List<PrebidMobilePluginRenderer> plugins = PrebidMobilePluginRegister.getInstance().getRTBListOfRenderersFor(adUnitConfiguration);
+        PluginRendererListMapper mapper = new PluginRendererListMapper();
+        PluginRendererList rendererList = new PluginRendererList();
+        rendererList.setList(mapper.map(plugins));
+
+        boolean isDefaultPluginRenderer = rendererList.get().size() == 1
+                && rendererList.get().get(0).getName().equals(PrebidMobilePluginRegister.PREBID_MOBILE_RENDERER_NAME);
+
+        if (!adUnitConfiguration.isOriginalAdUnit() && !isDefaultPluginRenderer) {
+            try {
+                Utils.addValue(prebid, "sdk", rendererList.getJsonObject());
+            } catch (JSONException e) {
+                LogUtil.error("setPluginRendererList", e.getMessage());
+            }
+        }
+    }
 
     private static void parseEvents(
         @NonNull Prebid prebid,

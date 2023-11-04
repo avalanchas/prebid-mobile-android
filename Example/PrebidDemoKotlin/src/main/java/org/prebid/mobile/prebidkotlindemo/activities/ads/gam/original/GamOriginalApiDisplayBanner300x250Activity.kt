@@ -21,7 +21,7 @@ import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.admanager.AdManagerAdRequest
 import com.google.android.gms.ads.admanager.AdManagerAdView
 import org.prebid.mobile.BannerAdUnit
-import org.prebid.mobile.BannerBaseAdUnit
+import org.prebid.mobile.BannerParameters
 import org.prebid.mobile.Signals
 import org.prebid.mobile.addendum.AdViewUtils
 import org.prebid.mobile.addendum.PbFindSizeError
@@ -32,7 +32,7 @@ class GamOriginalApiDisplayBanner300x250Activity : BaseAdActivity() {
 
     companion object {
         const val AD_UNIT_ID = "/21808260008/prebid_demo_app_original_api_banner_300x250_order"
-        const val CONFIG_ID = "imp-prebid-banner-300-250"
+        const val CONFIG_ID = "prebid-ita-banner-300-250"
         const val WIDTH = 300
         const val HEIGHT = 250
     }
@@ -52,9 +52,9 @@ class GamOriginalApiDisplayBanner300x250Activity : BaseAdActivity() {
         adUnit?.setAutoRefreshInterval(refreshTimeSeconds)
 
         // 2. Configure banner parameters
-        val parameters = BannerBaseAdUnit.Parameters()
+        val parameters = BannerParameters()
         parameters.api = listOf(Signals.Api.MRAID_3, Signals.Api.OMID_1)
-        adUnit?.parameters = parameters
+        adUnit?.bannerParameters = parameters
 
         // 3. Create AdManagerAdView
         val adView = AdManagerAdView(this)

@@ -30,17 +30,22 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.jetbrains.annotations.NotNull;
 import org.prebid.mobile.api.data.AdFormat;
+import org.prebid.mobile.api.data.BidInfo;
 import org.prebid.mobile.api.data.FetchDemandResult;
 import org.prebid.mobile.api.exceptions.AdException;
+import org.prebid.mobile.api.original.OnFetchDemandResult;
 import org.prebid.mobile.configuration.AdUnitConfiguration;
 import org.prebid.mobile.rendering.bidding.data.bid.BidResponse;
 import org.prebid.mobile.rendering.bidding.listeners.BidRequesterListener;
 import org.prebid.mobile.rendering.bidding.loader.BidLoader;
+import org.prebid.mobile.rendering.sdk.PrebidContextHolder;
 import org.prebid.mobile.tasksmanager.TasksManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -54,11 +59,19 @@ public abstract class AdUnit {
     protected BidLoader bidLoader;
     @Nullable
     protected Object adObject;
+    @Nullable
+    protected BidResponse bidResponse;
 
-    AdUnit(@NonNull String configId, @NonNull AdFormat adType) {
+    protected boolean allowNullableAdObject = false;
+
+    public AdUnit(@NotNull String configId) {
         configuration.setConfigId(configId);
-        configuration.setAdFormat(adType);
         configuration.setIsOriginalAdUnit(true);
+    }
+
+    AdUnit(@NonNull String configId, @NonNull EnumSet<AdFormat> adTypes) {
+        this(configId);
+        configuration.setAdFormats(adTypes);
     }
 
     /**
@@ -91,6 +104,16 @@ public abstract class AdUnit {
         }
     }
 
+    public void destroy() {
+        if (bidLoader != null) {
+            bidLoader.destroy();
+        }
+    }
+
+    /**
+     * Use {@link #fetchDemand(OnFetchDemandResult)}.
+     */
+    @Deprecated
     public void fetchDemand(@NonNull final OnCompleteListener2 listener) {
         final Map<String, String> keywordsMap = new HashMap<>();
 
@@ -101,7 +124,7 @@ public abstract class AdUnit {
         });
     }
 
-    public void fetchDemand(@NonNull Object adObj, @NonNull OnCompleteListener listener) {
+    public void fetchDemand(Object adObj, @NonNull OnCompleteListener listener) {
         if (TextUtils.isEmpty(PrebidMobile.getPrebidServerAccountId())) {
             LogUtil.error("Empty account id.");
             listener.onComplete(ResultCode.INVALID_ACCOUNT_ID);
@@ -128,7 +151,7 @@ public abstract class AdUnit {
             }
         }
 
-        Context context = PrebidMobile.getApplicationContext();
+        Context context = PrebidContextHolder.getContext();
         if (context != null) {
             ConnectivityManager conMgr = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
             if (conMgr != null && context.checkCallingOrSelfPermission("android.permission.ACCESS_NETWORK_STATE") == PackageManager.PERMISSION_GRANTED) {
@@ -144,10 +167,9 @@ public abstract class AdUnit {
             return;
         }
 
-        if (Util.supportedAdObject(adObj)) {
+        if (Util.supportedAdObject(adObj) || allowNullableAdObject) {
             adObject = adObj;
             bidLoader = new BidLoader(
-                    context,
                     configuration,
                     createBidListener(listener)
             );
@@ -167,6 +189,21 @@ public abstract class AdUnit {
             listener.onComplete(ResultCode.INVALID_AD_OBJECT);
         }
 
+    }
+
+    public void fetchDemand(OnFetchDemandResult listener) {
+        if (listener == null) {
+            LogUtil.error("Parameter OnFetchDemandResult in fetchDemand() must be not null.");
+            return;
+        }
+
+        allowNullableAdObject = true;
+
+        fetchDemand(null, resultCode -> {
+            BidInfo bidInfo = BidInfo.create(resultCode, bidResponse, configuration);
+            Util.saveCacheId(bidInfo.getNativeCacheId(), adObject);
+            listener.onComplete(bidInfo);
+        });
     }
 
     // MARK: - adunit context data aka inventory data (imp[].ext.data)
@@ -357,11 +394,21 @@ public abstract class AdUnit {
         configuration.setPbAdSlot(pbAdSlot);
     }
 
+    @Nullable
+    public String getGpid() {
+        return configuration.getGpid();
+    }
+
+    public void setGpid(@Nullable String gpid) {
+        configuration.setGpid(gpid);
+    }
 
     protected BidRequesterListener createBidListener(OnCompleteListener originalListener) {
         return new BidRequesterListener() {
             @Override
             public void onFetchCompleted(BidResponse response) {
+                bidResponse = response;
+
                 HashMap<String, String> keywords = response.getTargeting();
                 Util.apply(keywords, adObject);
                 originalListener.onComplete(ResultCode.SUCCESS);
@@ -369,6 +416,8 @@ public abstract class AdUnit {
 
             @Override
             public void onError(AdException exception) {
+                bidResponse = null;
+
                 Util.apply(null, adObject);
                 originalListener.onComplete(convertToResultCode(exception));
             }

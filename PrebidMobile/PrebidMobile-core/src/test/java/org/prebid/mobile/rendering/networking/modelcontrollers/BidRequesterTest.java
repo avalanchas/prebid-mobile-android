@@ -16,8 +16,16 @@
 
 package org.prebid.mobile.rendering.networking.modelcontrollers;
 
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+
 import android.app.Activity;
 import android.content.Context;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,12 +36,10 @@ import org.prebid.mobile.configuration.AdUnitConfiguration;
 import org.prebid.mobile.rendering.networking.ResponseHandler;
 import org.prebid.mobile.rendering.networking.parameters.AdRequestInput;
 import org.prebid.mobile.rendering.sdk.ManagersResolver;
+import org.prebid.mobile.rendering.sdk.PrebidContextHolder;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
-
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 19)
@@ -43,7 +49,13 @@ public class BidRequesterTest {
     private AdUnitConfiguration adConfiguration;
     private AdRequestInput adRequestInput;
 
-    @Mock private ResponseHandler mockResponseHandler;
+    @Mock
+    private ResponseHandler mockResponseHandler;
+
+    @After
+    public void clean() {
+        PrebidContextHolder.clearContext();
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -57,7 +69,7 @@ public class BidRequesterTest {
     @Test
     public void whenStartAdRequestAndContextNull_OnErrorWithExceptionCalled() {
         adConfiguration.setConfigId("test");
-        BidRequester requester = new BidRequester(null, adConfiguration, adRequestInput, mockResponseHandler);
+        BidRequester requester = new BidRequester(adConfiguration, adRequestInput, mockResponseHandler);
         requester.startAdRequest();
         verify(mockResponseHandler).onErrorWithException(any(AdException.class), anyLong());
     }
@@ -65,30 +77,19 @@ public class BidRequesterTest {
     @Test
     public void whenStartAdRequestAndNoConfigId_OnErrorCalled() {
         adConfiguration.setConfigId(null);
-        BidRequester requester = new BidRequester(context, adConfiguration, adRequestInput, mockResponseHandler);
+        BidRequester requester = new BidRequester(adConfiguration, adRequestInput, mockResponseHandler);
         requester.startAdRequest();
         verify(mockResponseHandler).onError(anyString(), anyLong());
     }
 
     @Test
     public void whenStartAdRequestAndInitValid_InitAdId() {
+        PrebidContextHolder.setContext(context);
+
         adConfiguration.setConfigId("test");
-        BidRequester requester = spy(new BidRequester(context, adConfiguration, adRequestInput, mockResponseHandler));
+        BidRequester requester = spy(new BidRequester(adConfiguration, adRequestInput, mockResponseHandler));
         requester.startAdRequest();
         verify(requester).makeAdRequest();
     }
 
-    @Test
-    public void whenFetchAdIdFailedOrSucceed_MakeRequest() {
-        BidRequester mockRequester = mock(BidRequester.class);
-        Requester.AdIdInitListener adIdInitListener = new Requester.AdIdInitListener(mockRequester);
-
-        // Fetch successful
-        adIdInitListener.adIdFetchCompletion();
-        verify(mockRequester, times(1)).makeAdRequest();
-
-        // Fetch failure
-        adIdInitListener.adIdFetchFailure();
-        verify(mockRequester, times(2)).makeAdRequest();
-    }
 }

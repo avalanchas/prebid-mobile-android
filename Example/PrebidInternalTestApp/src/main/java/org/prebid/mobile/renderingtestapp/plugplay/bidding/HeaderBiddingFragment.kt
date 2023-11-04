@@ -19,14 +19,11 @@ package org.prebid.mobile.renderingtestapp.plugplay.bidding
 import android.os.Bundle
 import android.view.View
 import android.widget.SearchView
-import android.widget.ToggleButton
-import androidx.appcompat.widget.SwitchCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
 import androidx.lifecycle.observe
 import androidx.navigation.fragment.findNavController
 import androidx.preference.PreferenceManager
-import androidx.recyclerview.widget.RecyclerView
 import org.prebid.mobile.PrebidMobile
 import org.prebid.mobile.renderingtestapp.R
 import org.prebid.mobile.renderingtestapp.data.DemoItem
@@ -65,6 +62,17 @@ class HeaderBiddingFragment : BaseFragment() {
         initListView()
         initSearchView()
         initConfigurationToggleButton()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+
+        integrationCategoriesControl = null
+        adCategoriesControl = null
+
+        viewModel.navigateToDemoExample.removeObservers(this)
+        viewModel.demoItems.removeObservers(this)
+        viewModel.configurationState.removeObservers(this)
     }
 
     private fun initViewModel() {

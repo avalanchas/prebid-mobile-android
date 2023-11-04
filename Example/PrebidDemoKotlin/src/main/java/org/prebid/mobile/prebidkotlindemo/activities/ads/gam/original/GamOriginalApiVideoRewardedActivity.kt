@@ -8,14 +8,14 @@ import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import org.prebid.mobile.RewardedVideoAdUnit
 import org.prebid.mobile.Signals
-import org.prebid.mobile.VideoBaseAdUnit
+import org.prebid.mobile.VideoParameters
 import org.prebid.mobile.prebidkotlindemo.activities.BaseAdActivity
 
 class GamOriginalApiVideoRewardedActivity : BaseAdActivity() {
 
     companion object {
         const val AD_UNIT_ID = "/21808260008/prebid-demo-app-original-api-video-interstitial"
-        const val CONFIG_ID = "imp-prebid-video-rewarded-320-480-original-api"
+        const val CONFIG_ID = "prebid-ita-video-rewarded-320-480-original-api"
     }
 
     private var adUnit: RewardedVideoAdUnit? = null
@@ -32,7 +32,7 @@ class GamOriginalApiVideoRewardedActivity : BaseAdActivity() {
         adUnit = RewardedVideoAdUnit(CONFIG_ID)
 
         // 2. Configure Video parameters
-        adUnit?.parameters = configureVideoParameters()
+        adUnit?.videoParameters = configureVideoParameters()
 
         // 3. Make a bid request to Prebid Server
         val request = AdManagerAdRequest.Builder().build()
@@ -48,9 +48,8 @@ class GamOriginalApiVideoRewardedActivity : BaseAdActivity() {
         }
     }
 
-    private fun configureVideoParameters(): VideoBaseAdUnit.Parameters {
-        return VideoBaseAdUnit.Parameters().apply {
-            mimes = listOf("video/mp4")
+    private fun configureVideoParameters(): VideoParameters {
+        return VideoParameters(listOf("video/mp4")).apply {
             protocols = listOf(Signals.Protocols.VAST_2_0)
             playbackMethod = listOf(Signals.PlaybackMethod.AutoPlaySoundOff)
         }

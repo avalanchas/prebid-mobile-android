@@ -17,6 +17,7 @@
 package org.prebid.mobile.rendering.models.openrtb;
 
 import android.text.TextUtils;
+
 import androidx.annotation.VisibleForTesting;
 import org.json.JSONArray;
 import org.json.JSONException;

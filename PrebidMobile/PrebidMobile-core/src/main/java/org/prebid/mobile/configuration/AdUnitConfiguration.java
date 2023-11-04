@@ -5,11 +5,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.prebid.mobile.AdSize;
-import org.prebid.mobile.BannerBaseAdUnit;
+import org.prebid.mobile.BannerParameters;
 import org.prebid.mobile.ContentObject;
 import org.prebid.mobile.DataObject;
 import org.prebid.mobile.LogUtil;
-import org.prebid.mobile.VideoBaseAdUnit;
+import org.prebid.mobile.VideoParameters;
 import org.prebid.mobile.api.data.AdFormat;
 import org.prebid.mobile.api.data.AdUnitFormat;
 import org.prebid.mobile.api.data.Position;
@@ -54,22 +54,29 @@ public class AdUnitConfiguration {
     private String pbAdSlot;
     private String interstitialSize;
     private String impressionUrl;
+    private String fingerprint = Utils.generateUUIDTimeBased();
+    @Nullable
+    private String gpid;
 
     private Position closeButtonPosition = Position.TOP_RIGHT;
     private Position skipButtonPosition = Position.TOP_RIGHT;
     private AdSize minSizePercentage;
     private PlacementType placementType;
     private AdPosition adPosition;
+    @Nullable
     private ContentObject appContent;
-    private BannerBaseAdUnit.Parameters bannerParameters;
-    private VideoBaseAdUnit.Parameters videoParameters;
+    private BannerParameters bannerParameters;
+    private VideoParameters videoParameters;
     private NativeAdUnitConfiguration nativeConfiguration;
 
     private final EnumSet<AdFormat> adFormats = EnumSet.noneOf(AdFormat.class);
     private final HashSet<AdSize> adSizes = new HashSet<>();
-    private final ArrayList<DataObject> userDataObjects = new ArrayList<>();
-    private final Map<String, Set<String>> extDataDictionary = new HashMap<>();
-    private final Set<String> extKeywordsSet = new HashSet<>();
+    @NonNull
+    private ArrayList<DataObject> userDataObjects = new ArrayList<>();
+    @NonNull
+    private Map<String, Set<String>> extDataDictionary = new HashMap<>();
+    @NonNull
+    private Set<String> extKeywordsSet = new HashSet<>();
 
 
     public void modifyUsingBidResponse(@Nullable BidResponse bidResponse) {
@@ -86,8 +93,10 @@ public class AdUnitConfiguration {
         return configId;
     }
 
-    public void setAppContent(ContentObject content) {
-        appContent = content;
+    public void setAppContent(@Nullable ContentObject content) {
+        if (content != null) {
+            appContent = content;
+        }
     }
 
     public ContentObject getAppContent() {
@@ -115,6 +124,12 @@ public class AdUnitConfiguration {
 
     public void clearUserData() {
         userDataObjects.clear();
+    }
+
+    public void setUserData(@Nullable ArrayList<DataObject> userData) {
+        if (userData != null) {
+            userDataObjects = userData;
+        }
     }
 
     public void addExtData(
@@ -159,6 +174,12 @@ public class AdUnitConfiguration {
         extDataDictionary.clear();
     }
 
+    public void setExtData(@Nullable Map<String, Set<String>> extData) {
+        if (extData != null) {
+            this.extDataDictionary = extData;
+        }
+    }
+
     public void addExtKeyword(String keyword) {
         if (keyword != null) {
             extKeywordsSet.add(keyword);
@@ -174,6 +195,12 @@ public class AdUnitConfiguration {
     public void removeExtKeyword(String key) {
         if (key != null) {
             extKeywordsSet.remove(key);
+        }
+    }
+
+    public void setExtKeywords(@Nullable Set<String> extKeywords) {
+        if (extKeywords != null) {
+            this.extKeywordsSet = extKeywords;
         }
     }
 
@@ -195,40 +222,56 @@ public class AdUnitConfiguration {
         return minSizePercentage;
     }
 
+    /**
+     * Should be replaced by the sizes in {@link BannerParameters} or {@link VideoParameters}.
+     */
+    @Deprecated
     public void addSize(@Nullable AdSize size) {
         if (size != null) {
             adSizes.add(size);
         }
     }
 
+    /**
+     * Should be replaced by the sizes in {@link BannerParameters} or {@link VideoParameters}.
+     */
+    @Deprecated
     public void addSizes(AdSize... sizes) {
         adSizes.addAll(Arrays.asList(sizes));
     }
 
+    /**
+     * Should be replaced by the sizes in {@link BannerParameters} or {@link VideoParameters}.
+     */
+    @Deprecated
     public void addSizes(@Nullable Set<AdSize> sizes) {
         if (sizes != null) {
             adSizes.addAll(sizes);
         }
     }
 
+    /**
+     * Should be replaced by the sizes in {@link BannerParameters} or {@link VideoParameters}.
+     */
+    @Deprecated
     @NonNull
     public HashSet<AdSize> getSizes() {
         return adSizes;
     }
 
-    public void setBannerParameters(BannerBaseAdUnit.Parameters parameters) {
+    public void setBannerParameters(BannerParameters parameters) {
         bannerParameters = parameters;
     }
 
-    public BannerBaseAdUnit.Parameters getBannerParameters() {
+    public BannerParameters getBannerParameters() {
         return bannerParameters;
     }
 
-    public void setVideoParameters(VideoBaseAdUnit.Parameters parameters) {
+    public void setVideoParameters(VideoParameters parameters) {
         videoParameters = parameters;
     }
 
-    public VideoBaseAdUnit.Parameters getVideoParameters() {
+    public VideoParameters getVideoParameters() {
         return videoParameters;
     }
 
@@ -309,18 +352,27 @@ public class AdUnitConfiguration {
     /**
      * Clears previous ad formats and adds AdFormats corresponding to AdUnitFormat types.
      */
-    public void setAdFormats(@Nullable EnumSet<AdUnitFormat> adUnitFormats) {
+    public void setAdUnitFormats(@Nullable EnumSet<AdUnitFormat> adUnitFormats) {
         if (adUnitFormats == null) return;
 
         adFormats.clear();
-
-        if (adUnitFormats.contains(AdUnitFormat.DISPLAY)) {
-            adFormats.add(AdFormat.INTERSTITIAL);
-        }
-        if (adUnitFormats.contains(AdUnitFormat.VIDEO)) {
-            adFormats.add(AdFormat.VAST);
-        }
+        adFormats.addAll(AdFormat.fromSet(adUnitFormats, true));
     }
+
+    /**
+     * Clears previous ad formats and adds AdFormats corresponding to AdUnitFormat types.
+     */
+    public void setAdFormats(@Nullable EnumSet<AdFormat> formats) {
+        if (formats == null) return;
+
+        if (formats.contains(AdFormat.NATIVE)) {
+            nativeConfiguration = new NativeAdUnitConfiguration();
+        }
+
+        adFormats.clear();
+        adFormats.addAll(formats);
+    }
+
 
     public void setSkipDelay(int seconds) {
         this.skipDelay = seconds;
@@ -459,6 +511,10 @@ public class AdUnitConfiguration {
         return nativeConfiguration;
     }
 
+    public void setNativeConfiguration(NativeAdUnitConfiguration nativeConfiguration) {
+        this.nativeConfiguration = nativeConfiguration;
+    }
+
     public boolean isOriginalAdUnit() {
         return isOriginalAdUnit;
     }
@@ -471,6 +527,18 @@ public class AdUnitConfiguration {
         return impressionUrl;
     }
 
+    public String getFingerprint() {
+        return fingerprint;
+    }
+
+    @Nullable
+    public String getGpid() {
+        return gpid;
+    }
+
+    public void setGpid(@Nullable String gpid) {
+        this.gpid = gpid;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -490,5 +558,4 @@ public class AdUnitConfiguration {
     public int hashCode() {
         return configId != null ? configId.hashCode() : 0;
     }
-
 }

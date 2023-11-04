@@ -26,13 +26,13 @@ import android.util.Pair;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.prebid.mobile.AdSize;
-import org.prebid.mobile.BannerBaseAdUnit;
+import org.prebid.mobile.BannerParameters;
 import org.prebid.mobile.DataObject;
 import org.prebid.mobile.ExternalUserId;
 import org.prebid.mobile.PrebidMobile;
 import org.prebid.mobile.Signals;
 import org.prebid.mobile.TargetingParams;
-import org.prebid.mobile.VideoBaseAdUnit;
+import org.prebid.mobile.VideoParameters;
 import org.prebid.mobile.api.data.AdFormat;
 import org.prebid.mobile.configuration.AdUnitConfiguration;
 import org.prebid.mobile.rendering.bidding.data.bid.Prebid;
@@ -125,13 +125,12 @@ public class BasicParameterBuilder extends ParameterBuilder {
             setCommonImpValues(imp, uuid);
             if (adConfiguration.getNativeConfiguration() != null) {
                 setNativeImpValues(imp);
-            } else {
-                if (adConfiguration.isAdType(AdFormat.BANNER) || adConfiguration.isAdType(AdFormat.INTERSTITIAL)) {
-                    setBannerImpValues(imp);
-                }
-                if (adConfiguration.isAdType(AdFormat.VAST)) {
-                    setVideoImpValues(imp);
-                }
+            }
+            if (adConfiguration.isAdType(AdFormat.BANNER) || adConfiguration.isAdType(AdFormat.INTERSTITIAL)) {
+                setBannerImpValues(imp);
+            }
+            if (adConfiguration.isAdType(AdFormat.VAST)) {
+                setVideoImpValues(imp);
             }
         }
     }
@@ -139,7 +138,7 @@ public class BasicParameterBuilder extends ParameterBuilder {
     private void configureBidRequest(BidRequest bidRequest, String uuid) {
         bidRequest.setId(uuid);
         boolean isVideo = adConfiguration.isAdType(AdFormat.VAST);
-        bidRequest.getExt().put("prebid", Prebid.getJsonObjectForBidRequest(PrebidMobile.getPrebidServerAccountId(), isVideo, adConfiguration.isOriginalAdUnit()));
+        bidRequest.getExt().put("prebid", Prebid.getJsonObjectForBidRequest(PrebidMobile.getPrebidServerAccountId(), isVideo, adConfiguration));
         //if coppaEnabled - set 1, else No coppa is sent
         if (PrebidMobile.isCoppaEnabled) {
             bidRequest.getRegs().coppa = 1;
@@ -218,7 +217,7 @@ public class BasicParameterBuilder extends ParameterBuilder {
     private void setVideoImpValues(Imp imp) {
         Video video = new Video();
         if (adConfiguration.isOriginalAdUnit()) {
-            VideoBaseAdUnit.Parameters videoParameters = adConfiguration.getVideoParameters();
+            VideoParameters videoParameters = adConfiguration.getVideoParameters();
             if (videoParameters != null) {
                 video.minduration = videoParameters.getMinDuration();
                 video.maxduration = videoParameters.getMaxDuration();
@@ -301,8 +300,14 @@ public class BasicParameterBuilder extends ParameterBuilder {
             }
         }
 
-        HashSet<AdSize> adSizes = adConfiguration.getSizes();
-        if (!adSizes.isEmpty()) {
+        VideoParameters videoParams = adConfiguration.getVideoParameters();
+        if (videoParams != null) {
+            AdSize adSize = videoParams.getAdSize();
+            if (adSize != null) {
+                video.w = adSize.getWidth();
+                video.h = adSize.getHeight();
+            }
+        } else if (!adConfiguration.getSizes().isEmpty()) {
             for (AdSize size : adConfiguration.getSizes()) {
                 video.w = size.getWidth();
                 video.h = size.getHeight();
@@ -321,7 +326,7 @@ public class BasicParameterBuilder extends ParameterBuilder {
     private void setBannerImpValues(Imp imp) {
         Banner banner = new Banner();
         if (adConfiguration.isOriginalAdUnit()) {
-            BannerBaseAdUnit.Parameters parameters = adConfiguration.getBannerParameters();
+            BannerParameters parameters = adConfiguration.getBannerParameters();
             if (parameters != null && parameters.getApi() != null && parameters.getApi().size() > 0) {
                 List<Signals.Api> apiObjects = parameters.getApi();
                 int[] api = new int[apiObjects.size()];
@@ -334,7 +339,15 @@ public class BasicParameterBuilder extends ParameterBuilder {
             banner.api = getApiFrameworks();
         }
 
-        if (adConfiguration.isAdType(AdFormat.BANNER)) {
+        BannerParameters bannerParameters = adConfiguration.getBannerParameters();
+        if (bannerParameters != null) {
+            Set<AdSize> adSizes = bannerParameters.getAdSizes();
+            if (adSizes != null) {
+                for (AdSize size : adSizes) {
+                    banner.addFormat(size.getWidth(), size.getHeight());
+                }
+            }
+        } else if (adConfiguration.isAdType(AdFormat.BANNER)) {
             for (AdSize size : adConfiguration.getSizes()) {
                 banner.addFormat(size.getWidth(), size.getHeight());
             }
@@ -368,6 +381,11 @@ public class BasicParameterBuilder extends ParameterBuilder {
             imp.secure = 1;
         }
         imp.getExt().put("prebid", Prebid.getJsonObjectForImp(adConfiguration));
+
+        String gpid = adConfiguration.getGpid();
+        if (gpid != null) {
+            imp.getExt().put("gpid", gpid);
+        }
 
         final Map<String, Set<String>> extDataDictionary = adConfiguration.getExtDataDictionary();
         JSONObject data = Utils.toJson(extDataDictionary);

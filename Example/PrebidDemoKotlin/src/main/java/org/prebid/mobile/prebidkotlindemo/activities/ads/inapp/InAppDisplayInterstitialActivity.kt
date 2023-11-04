@@ -26,7 +26,7 @@ import java.util.*
 class InAppDisplayInterstitialActivity : BaseAdActivity() {
 
     companion object {
-        const val CONFIG_ID = "imp-prebid-display-interstitial-320-480"
+        const val CONFIG_ID = "prebid-ita-display-interstitial-320-480"
     }
 
     private var adUnit: InterstitialAdUnit? = null
@@ -39,7 +39,7 @@ class InAppDisplayInterstitialActivity : BaseAdActivity() {
     }
 
     private fun createAd() {
-        adUnit = InterstitialAdUnit(this, CONFIG_ID, EnumSet.of(AdUnitFormat.DISPLAY))
+        adUnit = InterstitialAdUnit(this, CONFIG_ID, EnumSet.of(AdUnitFormat.BANNER))
         adUnit?.setInterstitialAdUnitListener(object : InterstitialAdUnitListener {
             override fun onAdLoaded(interstitialAdUnit: InterstitialAdUnit?) {
                 adUnit?.show()

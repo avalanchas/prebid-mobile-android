@@ -16,8 +16,8 @@
 
 package org.prebid.mobile.rendering.networking.modelcontrollers;
 
-import android.content.Context;
 import android.text.TextUtils;
+
 import org.prebid.mobile.configuration.AdUnitConfiguration;
 import org.prebid.mobile.rendering.networking.ResponseHandler;
 import org.prebid.mobile.rendering.networking.parameters.AdRequestInput;
@@ -28,15 +28,17 @@ public class BidRequester extends Requester {
 
     private static final String REQUEST_NAME = "bidrequest";
 
-    public BidRequester(Context context, AdUnitConfiguration config, AdRequestInput adRequestInput, ResponseHandler responseHandler) {
-        super(context, config, adRequestInput, responseHandler);
+    public BidRequester(AdUnitConfiguration config, AdRequestInput adRequestInput, ResponseHandler responseHandler) {
+        super(config, adRequestInput, responseHandler);
         requestName = REQUEST_NAME;
     }
 
     @Override
     public void startAdRequest() {
         if (TextUtils.isEmpty(adConfiguration.getConfigId())) {
-            adResponseCallBack.onError("No configuration id specified.", 0);
+            if (adResponseCallBack != null) {
+                adResponseCallBack.onError("No configuration id specified.", 0);
+            }
             return;
         }
 

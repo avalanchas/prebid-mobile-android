@@ -19,17 +19,27 @@ package org.prebid.mobile.rendering.networking.modelcontrollers;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.AsyncTask;
+
 import org.prebid.mobile.LogUtil;
 import org.prebid.mobile.api.exceptions.AdException;
 import org.prebid.mobile.configuration.AdUnitConfiguration;
 import org.prebid.mobile.rendering.listeners.AdIdFetchListener;
 import org.prebid.mobile.rendering.networking.BaseNetworkTask;
 import org.prebid.mobile.rendering.networking.ResponseHandler;
-import org.prebid.mobile.rendering.networking.parameters.*;
+import org.prebid.mobile.rendering.networking.parameters.AdRequestInput;
+import org.prebid.mobile.rendering.networking.parameters.AppInfoParameterBuilder;
+import org.prebid.mobile.rendering.networking.parameters.BasicParameterBuilder;
+import org.prebid.mobile.rendering.networking.parameters.DeviceInfoParameterBuilder;
+import org.prebid.mobile.rendering.networking.parameters.GeoLocationParameterBuilder;
+import org.prebid.mobile.rendering.networking.parameters.NetworkParameterBuilder;
+import org.prebid.mobile.rendering.networking.parameters.ParameterBuilder;
+import org.prebid.mobile.rendering.networking.parameters.UserConsentParameterBuilder;
+import org.prebid.mobile.rendering.networking.parameters.UserParameters;
 import org.prebid.mobile.rendering.networking.urlBuilder.PathBuilderBase;
 import org.prebid.mobile.rendering.networking.urlBuilder.URLBuilder;
 import org.prebid.mobile.rendering.networking.urlBuilder.URLComponents;
 import org.prebid.mobile.rendering.sdk.ManagersResolver;
+import org.prebid.mobile.rendering.sdk.PrebidContextHolder;
 import org.prebid.mobile.rendering.sdk.deviceData.managers.ConnectionInfoManager;
 import org.prebid.mobile.rendering.sdk.deviceData.managers.DeviceInfoManager;
 import org.prebid.mobile.rendering.sdk.deviceData.managers.UserConsentManager;
@@ -46,20 +56,18 @@ public abstract class Requester {
     private static final String TAG = Requester.class.getSimpleName();
 
     protected String requestName;
-    protected WeakReference<Context> contextReference;
     protected AdUnitConfiguration adConfiguration;
     protected URLBuilder urlBuilder;
     protected ResponseHandler adResponseCallBack;
-    protected AsyncTask networkTask;
+    protected BaseNetworkTask networkTask;
+    protected AdIdManager.FetchAdIdInfoTask fetchAdIdInfoTask;
 
     Requester(
-            Context context,
             AdUnitConfiguration config,
             AdRequestInput adRequestInput,
             ResponseHandler responseHandler
     ) {
         requestName = "";
-        contextReference = new WeakReference<>(context);
         adConfiguration = config;
 
         /*
@@ -77,11 +85,18 @@ public abstract class Requester {
     public void destroy() {
         if (networkTask != null) {
             networkTask.cancel(true);
+            networkTask.destroy();
         }
+        networkTask = null;
+        if (fetchAdIdInfoTask != null) {
+            fetchAdIdInfoTask.cancel(true);
+        }
+        adResponseCallBack = null;
+        fetchAdIdInfoTask = null;
     }
 
     protected List<ParameterBuilder> getParameterBuilders() {
-        Context context = contextReference.get();
+        Context context = PrebidContextHolder.getContext();
         Resources resources = null;
         if (context != null) {
             resources = context.getResources();
@@ -105,7 +120,7 @@ public abstract class Requester {
      * must attempt to grab and honor the latest LMT value for each ad request
      */
     protected void getAdId() {
-        final Context context = contextReference.get();
+        final Context context = PrebidContextHolder.getContext();
         if (context == null) {
             sendAdException(
                 "Context is null",
@@ -116,7 +131,19 @@ public abstract class Requester {
 
         UserConsentManager userConsentManager = ManagersResolver.getInstance().getUserConsentManager();
         if (userConsentManager.canAccessDeviceData()) {
-            AdIdManager.initAdId(context, new AdIdInitListener(this));
+            fetchAdIdInfoTask = AdIdManager.initAdId(context, new AdIdFetchListener() {
+                @Override
+                public void adIdFetchCompletion() {
+                    LogUtil.info(TAG, "Advertising id was received");
+                    makeAdRequest();
+                }
+
+                @Override
+                public void adIdFetchFailure() {
+                    LogUtil.warning(TAG, "Can't get advertising id");
+                    makeAdRequest();
+                }
+            });
         } else {
             AdIdManager.setAdId(null);
             makeAdRequest();
@@ -128,7 +155,9 @@ public abstract class Requester {
     private void sendAdException(String logMsg, String exceptionMsg) {
         LogUtil.warning(TAG, logMsg);
         AdException adException = new AdException(AdException.INIT_ERROR, exceptionMsg);
-        adResponseCallBack.onErrorWithException(adException, 0);
+        if (adResponseCallBack != null) {
+            adResponseCallBack.onErrorWithException(adException, 0);
+        }
     }
 
     protected void makeAdRequest() {
@@ -169,38 +198,8 @@ public abstract class Requester {
         params.userAgent = AppInfoManager.getUserAgent();
         params.name = requestName;
 
-        BaseNetworkTask networkTask = new BaseNetworkTask(adResponseCallBack);
-        this.networkTask = networkTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, params);
+        networkTask = new BaseNetworkTask(adResponseCallBack);
+        networkTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, params);
     }
 
-    protected static class AdIdInitListener implements AdIdFetchListener {
-
-        private WeakReference<Requester> weakRequester;
-
-        public AdIdInitListener(Requester requester) {
-            weakRequester = new WeakReference<>(requester);
-        }
-
-        @Override
-        public void adIdFetchCompletion() {
-            LogUtil.info(TAG, "adIdFetchCompletion");
-            makeAdRequest();
-        }
-
-        @Override
-        public void adIdFetchFailure() {
-            LogUtil.warning(TAG, "adIdFetchFailure");
-            makeAdRequest();
-        }
-
-        private void makeAdRequest() {
-            Requester requester = weakRequester.get();
-            if (requester == null) {
-                LogUtil.warning(TAG, "Requester is null");
-                return;
-            }
-
-            requester.makeAdRequest();
-        }
-    }
 }

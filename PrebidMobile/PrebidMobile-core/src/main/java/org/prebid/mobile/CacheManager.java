@@ -17,8 +17,11 @@
 package org.prebid.mobile;
 
 import android.os.Handler;
-import androidx.annotation.VisibleForTesting;
+import android.os.Looper;
 import android.text.TextUtils;
+
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import java.util.HashMap;
 import java.util.UUID;
@@ -28,20 +31,17 @@ public class CacheManager {
     private static HashMap<String, String> savedValues = new HashMap<>();
     private static HashMap<String, Long> expiryIntervalMap = new HashMap<>();
     private static HashMap<String, CacheExpiryListener> cacheExpiryListenerMap = new HashMap<>();
-    private static Handler handler = new Handler();
+    private static Handler handler = new Handler(Looper.getMainLooper());
 
     public static String save(String content) {
         if (!TextUtils.isEmpty(content)) {
             final String cacheId = "Prebid_" + UUID.randomUUID().toString();
             savedValues.put(cacheId, content);
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (cacheExpiryListenerMap.containsKey(cacheId)) {
-                        cacheExpiryListenerMap.remove(cacheId).onCacheExpired();
-                    }
-                    savedValues.remove(cacheId);
+            handler.postDelayed(() -> {
+                if (cacheExpiryListenerMap.containsKey(cacheId)) {
+                    cacheExpiryListenerMap.remove(cacheId).onCacheExpired();
                 }
+                savedValues.remove(cacheId);
             }, getExpiryInterval(cacheId));
             return cacheId;
         } else {
@@ -64,6 +64,10 @@ public class CacheManager {
         expiryIntervalMap.clear();
     }
 
+    /**
+     * Return cached ad content by cache id.
+     */
+    @Nullable
     protected static String get(String cacheId) {
         return savedValues.remove(cacheId);
     }

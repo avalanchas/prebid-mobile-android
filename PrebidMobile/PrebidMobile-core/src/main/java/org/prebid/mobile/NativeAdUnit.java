@@ -2,6 +2,7 @@ package org.prebid.mobile;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
+
 import org.json.JSONObject;
 import org.prebid.mobile.api.data.AdFormat;
 import org.prebid.mobile.api.exceptions.AdException;
@@ -9,6 +10,7 @@ import org.prebid.mobile.configuration.NativeAdUnitConfiguration;
 import org.prebid.mobile.rendering.bidding.data.bid.BidResponse;
 import org.prebid.mobile.rendering.bidding.listeners.BidRequesterListener;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 
 /**
@@ -22,7 +24,7 @@ public class NativeAdUnit extends AdUnit {
     private final NativeAdUnitConfiguration nativeConfiguration;
 
     public NativeAdUnit(@NonNull String configId) {
-        super(configId, AdFormat.NATIVE);
+        super(configId, EnumSet.of(AdFormat.NATIVE));
         nativeConfiguration = configuration.getNativeConfiguration();
     }
 
@@ -31,6 +33,8 @@ public class NativeAdUnit extends AdUnit {
         return new BidRequesterListener() {
             @Override
             public void onFetchCompleted(BidResponse response) {
+                bidResponse = response;
+
                 HashMap<String, String> keywords = response.getTargeting();
                 Util.apply(keywords, adObject);
 
@@ -42,6 +46,8 @@ public class NativeAdUnit extends AdUnit {
 
             @Override
             public void onError(AdException exception) {
+                bidResponse = null;
+
                 Util.apply(null, adObject);
                 originalListener.onComplete(convertToResultCode(exception));
             }

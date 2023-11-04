@@ -31,6 +31,9 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 
+import com.google.common.collect.Sets;
+
+import org.assertj.core.util.Lists;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -39,21 +42,28 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.prebid.mobile.AdSize;
+import org.prebid.mobile.BannerParameters;
 import org.prebid.mobile.DataObject;
 import org.prebid.mobile.ExternalUserId;
+import org.prebid.mobile.NativeTitleAsset;
 import org.prebid.mobile.PrebidMobile;
 import org.prebid.mobile.Signals;
 import org.prebid.mobile.TargetingParams;
-import org.prebid.mobile.VideoBaseAdUnit;
+import org.prebid.mobile.VideoParameters;
 import org.prebid.mobile.api.data.AdFormat;
 import org.prebid.mobile.api.data.AdUnitFormat;
+import org.prebid.mobile.api.rendering.pluginrenderer.PrebidMobilePluginRegister;
+import org.prebid.mobile.api.rendering.pluginrenderer.PrebidMobilePluginRenderer;
 import org.prebid.mobile.configuration.AdUnitConfiguration;
+import org.prebid.mobile.configuration.NativeAdUnitConfiguration;
 import org.prebid.mobile.rendering.bidding.data.bid.Prebid;
 import org.prebid.mobile.rendering.models.AdPosition;
 import org.prebid.mobile.rendering.models.PlacementType;
 import org.prebid.mobile.rendering.models.openrtb.BidRequest;
 import org.prebid.mobile.rendering.models.openrtb.bidRequests.Ext;
 import org.prebid.mobile.rendering.models.openrtb.bidRequests.Imp;
+import org.prebid.mobile.rendering.models.openrtb.bidRequests.Native;
+import org.prebid.mobile.rendering.models.openrtb.bidRequests.PluginRendererList;
 import org.prebid.mobile.rendering.models.openrtb.bidRequests.User;
 import org.prebid.mobile.rendering.models.openrtb.bidRequests.devices.Geo;
 import org.prebid.mobile.rendering.models.openrtb.bidRequests.imps.Banner;
@@ -63,6 +73,7 @@ import org.prebid.mobile.rendering.models.openrtb.bidRequests.source.Source;
 import org.prebid.mobile.rendering.sdk.ManagersResolver;
 import org.prebid.mobile.rendering.session.manager.OmAdSessionManager;
 import org.prebid.mobile.rendering.utils.helpers.Utils;
+import org.prebid.mobile.testutils.FakePrebidMobilePluginRenderer;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
@@ -88,6 +99,7 @@ public class BasicParameterBuilderTest {
     private static final String USER_CUSTOM = "custom";
     private static final String USER_GENDER = "M";
     private static final String USER_BUYER_ID = "bid";
+    private PrebidMobilePluginRenderer otherPlugin = FakePrebidMobilePluginRenderer.getFakePrebidRenderer(null, null, true, "FakePlugin", "1.0");
 
     private Context context;
 
@@ -119,6 +131,60 @@ public class BasicParameterBuilderTest {
         PrebidMobile.isCoppaEnabled = false;
         PrebidMobile.clearStoredBidResponses();
         PrebidMobile.setStoredAuctionResponse(null);
+
+        PrebidMobile.unregisterPluginRenderer(otherPlugin);
+    }
+
+    @Test
+    public void multiformat_setAllParameterTypes_allTypesInRequestObject() throws JSONException {
+        AdUnitConfiguration config = new AdUnitConfiguration();
+        config.setIsOriginalAdUnit(true);
+
+        BannerParameters bannerParams = new BannerParameters();
+        bannerParams.setAdSizes(Sets.newHashSet(new AdSize(300, 250)));
+        bannerParams.setApi(Lists.newArrayList(Signals.Api.MRAID_2, Signals.Api.MRAID_3));
+        config.setBannerParameters(bannerParams);
+
+        VideoParameters videoParameters = new VideoParameters(Lists.newArrayList("video/mp4"));
+        videoParameters.setAdSize(new AdSize(320, 480));
+        videoParameters.setApi(Lists.newArrayList(Signals.Api.OMID_1, Signals.Api.VPAID_1));
+        config.setVideoParameters(videoParameters);
+
+        NativeAdUnitConfiguration nativeConfiguration = new NativeAdUnitConfiguration();
+        NativeTitleAsset titleAsset = new NativeTitleAsset();
+        titleAsset.setRequired(true);
+        nativeConfiguration.addAsset(titleAsset);
+        config.setNativeConfiguration(nativeConfiguration);
+
+        config.setAdFormats(EnumSet.of(AdFormat.BANNER, AdFormat.VAST, AdFormat.NATIVE));
+
+
+        BidRequest bidRequest = configIntoBidRequest(config);
+
+
+        Imp imp = bidRequest.getImp().get(0);
+        assertNotNull(imp);
+        Banner banner = imp.banner;
+        assertNotNull(banner);
+        assertEquals("{\"format\":[{\"w\":300,\"h\":250}],\"api\":[5,6]}", banner.getJsonObject().toString());
+
+        Video video = imp.video;
+        assertNotNull(video);
+        assertEquals("{\"delivery\":[3],\"w\":320,\"h\":480,\"api\":[7,1],\"mimes\":[\"video\\/mp4\"]}", video.getJsonObject().toString());
+
+        Native nativeObj = imp.nativeObj;
+        assertNotNull(nativeObj);
+    }
+
+    private BidRequest configIntoBidRequest(AdUnitConfiguration config) {
+        BasicParameterBuilder builder = new BasicParameterBuilder(
+                config,
+                context.getResources(),
+                browserActivityAvailable
+        );
+        AdRequestInput adRequestInput = new AdRequestInput();
+        builder.appendBuilderParameters(adRequestInput);
+        return adRequestInput.getBidRequest();
     }
 
     @Test
@@ -224,7 +290,6 @@ public class BasicParameterBuilderTest {
         );
         AdRequestInput adRequestInput = new AdRequestInput();
         builder.appendBuilderParameters(adRequestInput);
-
         BidRequest actualBidRequest = adRequestInput.getBidRequest();
         BidRequest expectedBidRequest = getExpectedBidRequest(adConfiguration, actualBidRequest.getId());
 
@@ -235,6 +300,26 @@ public class BasicParameterBuilderTest {
         assertNull(actualImp.video);
         assertEquals(1, actualImp.secure.intValue());
         assertEquals(0, actualImp.instl.intValue());
+    }
+
+    @Test
+    public void setGpid_gpidPresentInRequest() {
+        AdUnitConfiguration adConfiguration = new AdUnitConfiguration();
+        String expectedGpid = "/12345/home_screen#identifier";
+        adConfiguration.setGpid(expectedGpid);
+
+        BasicParameterBuilder builder = new BasicParameterBuilder(
+                adConfiguration,
+                context.getResources(),
+                browserActivityAvailable
+        );
+        AdRequestInput adRequestInput = new AdRequestInput();
+        builder.appendBuilderParameters(adRequestInput);
+
+        BidRequest actualBidRequest = adRequestInput.getBidRequest();
+        Imp imp = actualBidRequest.getImp().get(0);
+        String gpid = (String) imp.getExt().getMap().get("gpid");
+        assertEquals(expectedGpid, gpid);
     }
 
     @Test
@@ -583,7 +668,7 @@ public class BasicParameterBuilderTest {
     @Test
     public void testMultiFormatAdUnit_bannerAndVideoObjectsAreNotNull() {
         AdUnitConfiguration configuration = new AdUnitConfiguration();
-        configuration.setAdFormats(EnumSet.of(AdUnitFormat.DISPLAY, AdUnitFormat.VIDEO));
+        configuration.setAdUnitFormats(EnumSet.of(AdUnitFormat.DISPLAY, AdUnitFormat.VIDEO));
 
         BasicParameterBuilder builder = new BasicParameterBuilder(configuration, null, false);
 
@@ -772,9 +857,81 @@ public class BasicParameterBuilderTest {
         assertNull(video.startDelay);
     }
 
+    @Test
+    public void whenSetPluginRendererListAndOriginalAdUnitTrue_pluginRendererListIsNull() throws JSONException {
+        // Given
+        AdUnitConfiguration configuration = new AdUnitConfiguration();
+        configuration.setIsOriginalAdUnit(true);
+        configuration.setAdFormat(AdFormat.BANNER);
+        String unwantedObjectNodeKey = "sdk";
 
-    private VideoBaseAdUnit.Parameters createFullVideoParameters() {
-        VideoBaseAdUnit.Parameters parameters = new VideoBaseAdUnit.Parameters();
+        BasicParameterBuilder builder = new BasicParameterBuilder(configuration, context.getResources(), false);
+        AdRequestInput adRequestInput = new AdRequestInput();
+
+        BidRequest bidRequest = new BidRequest();
+        String actualBidRequest = bidRequest.getJsonObject().toString();
+
+        // When
+        builder.appendBuilderParameters(adRequestInput);
+
+        // Then
+        JSONObject prebidObj = (JSONObject) adRequestInput.getBidRequest().getExt().getMap().get("prebid");
+        assertFalse(prebidObj.has(unwantedObjectNodeKey));
+        assertEquals(actualBidRequest, bidRequest.getJsonObject().toString());
+    }
+
+    @Test
+    public void whenSetPluginRendererListAndPluginIsDefaultOnly_pluginRendererListIsNull() throws JSONException {
+        // Given
+        AdUnitConfiguration configuration = new AdUnitConfiguration();
+        configuration.setIsOriginalAdUnit(false);
+        configuration.setAdFormat(AdFormat.BANNER);
+        String unwantedObjectNodeKey = "sdk";
+
+        BasicParameterBuilder builder = new BasicParameterBuilder(configuration, context.getResources(), false);
+        AdRequestInput adRequestInput = new AdRequestInput();
+
+        BidRequest bidRequest = new BidRequest();
+        String actualBidRequest = bidRequest.getJsonObject().toString();
+
+        // When
+        builder.appendBuilderParameters(adRequestInput);
+
+        // Then
+        JSONObject prebidObj = (JSONObject) adRequestInput.getBidRequest().getExt().getMap().get("prebid");
+        assertFalse(prebidObj.has(unwantedObjectNodeKey));
+        assertEquals(actualBidRequest, bidRequest.getJsonObject().toString());
+    }
+
+    @Test
+    public void whenSetPluginRendererList_pluginRendererIsIndexed() throws JSONException {
+        // Given
+        PrebidMobile.registerPluginRenderer(otherPlugin);
+        AdUnitConfiguration configuration = new AdUnitConfiguration();
+        configuration.setIsOriginalAdUnit(false);
+        configuration.setAdFormat(AdFormat.BANNER);
+
+        BasicParameterBuilder builder = new BasicParameterBuilder(configuration, context.getResources(), false);
+        AdRequestInput adRequestInput = new AdRequestInput();
+
+        // When
+        builder.appendBuilderParameters(adRequestInput);
+
+        // Then
+        JSONObject prebidObj = (JSONObject) adRequestInput.getBidRequest().getExt().getMap().get("prebid");
+        JSONObject sdkObj = prebidObj.getJSONObject("sdk");
+        JSONArray renderersObj = sdkObj.getJSONArray(PluginRendererList.RENDERERS_KEY);
+        // Default plugin is indexed and additional plugin is indexed
+        assertTrue(renderersObj.length() == 2);
+        assertEquals(((JSONObject)renderersObj.get(0)).get("name"), otherPlugin.getName());
+        assertEquals(((JSONObject)renderersObj.get(1)).get("name"), PrebidMobilePluginRegister.PREBID_MOBILE_RENDERER_NAME);
+    }
+
+    private VideoParameters createFullVideoParameters() {
+        ArrayList<String> mimes = new ArrayList<>(2);
+        mimes.add("Mime1");
+        mimes.add("Mime2");
+        VideoParameters parameters = new VideoParameters(mimes);
 
         parameters.setMinDuration(101);
         parameters.setMaxDuration(102);
@@ -783,11 +940,6 @@ public class BasicParameterBuilderTest {
         parameters.setPlacement(Signals.Placement.InBanner);
         parameters.setLinearity(1);
         parameters.setStartDelay(Signals.StartDelay.PreRoll);
-
-        ArrayList<String> mimes = new ArrayList<>(2);
-        mimes.add("Mime1");
-        mimes.add("Mime2");
-        parameters.setMimes(mimes);
 
         ArrayList<Signals.Protocols> protocols = new ArrayList<>(2);
         protocols.add(new Signals.Protocols(11));
@@ -804,6 +956,8 @@ public class BasicParameterBuilderTest {
         playbackMethods.add(new Signals.PlaybackMethod(32));
         parameters.setPlaybackMethod(playbackMethods);
 
+        parameters.setAdSize(new AdSize(320, 480));
+
         return parameters;
     }
 
@@ -814,8 +968,10 @@ public class BasicParameterBuilderTest {
         BidRequest bidRequest = new BidRequest();
         bidRequest.setId(uuid);
         boolean isVideo = adConfiguration.isAdType(AdFormat.VAST);
-        bidRequest.getExt()
-            .put("prebid", Prebid.getJsonObjectForBidRequest(PrebidMobile.getPrebidServerAccountId(), isVideo, false));
+        bidRequest.getExt().put(
+                "prebid",
+                Prebid.getJsonObjectForBidRequest(PrebidMobile.getPrebidServerAccountId(), isVideo, adConfiguration)
+        );
         //if coppaEnabled - set 1, else No coppa is sent
         if (PrebidMobile.isCoppaEnabled) {
             bidRequest.getRegs().coppa = 1;

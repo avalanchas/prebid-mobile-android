@@ -19,11 +19,15 @@ package org.prebid.mobile.rendering.utils.helpers;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+
 import androidx.annotation.VisibleForTesting;
+
 import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+
 import org.prebid.mobile.LogUtil;
 import org.prebid.mobile.rendering.listeners.AdIdFetchListener;
 
@@ -46,7 +50,7 @@ public class AdIdManager {
     }
 
     // Wrap method execution in try / catch to avoid crashes in runtime if publisher didn't include identifier dependencies
-    public static void initAdId(final Context context, final AdIdFetchListener listener) {
+    public static FetchAdIdInfoTask initAdId(final Context context, final AdIdFetchListener listener) {
         try {
             GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
             int resultCode = apiAvailability.isGooglePlayServicesAvailable(context);
@@ -55,14 +59,15 @@ public class AdIdManager {
                 getAdIdInfoTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                 //wait for a max of 3 secs and cancel the task if it's still running.
                 //continue with adIdFetchFailure() where we will just log this as warning
-                Handler handler = new Handler();
+                Handler handler = new Handler(Looper.getMainLooper());
                 handler.postDelayed(() -> {
-                    if (getAdIdInfoTask.getStatus() == AsyncTask.Status.RUNNING) {
-                        LogUtil.debug(TAG, "Cancelling FetchAdIdInfoTask");
+                    if (getAdIdInfoTask.getStatus() != AsyncTask.Status.FINISHED) {
+                        LogUtil.debug(TAG, "Canceling advertising id fetching");
                         getAdIdInfoTask.cancel(true);
                         listener.adIdFetchFailure();
                     }
                 }, AD_ID_TIMEOUT_MS);
+                return getAdIdInfoTask;
             }
             else {
                 listener.adIdFetchCompletion();
@@ -71,6 +76,7 @@ public class AdIdManager {
         catch (Throwable throwable) {
             LogUtil.error(TAG, "Failed to initAdId: " + Log.getStackTraceString(throwable) + "\nDid you add necessary dependencies?");
         }
+        return null;
     }
 
     /**
@@ -93,7 +99,7 @@ public class AdIdManager {
         sAdId = adId;
     }
 
-    private static class FetchAdIdInfoTask extends AsyncTask<Void, Void, Void> {
+    public static class FetchAdIdInfoTask extends AsyncTask<Void, Void, Void> {
 
         private final WeakReference<Context> contextWeakReference;
         private final AdIdFetchListener adIdFetchListener;

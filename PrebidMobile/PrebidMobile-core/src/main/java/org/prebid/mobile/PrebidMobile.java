@@ -21,13 +21,18 @@ import android.util.Log;
 import android.util.Patterns;
 import android.webkit.URLUtil;
 
+import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.prebid.mobile.api.data.InitializationStatus;
+import org.prebid.mobile.api.rendering.pluginrenderer.PrebidMobilePluginRegister;
+import org.prebid.mobile.api.rendering.pluginrenderer.PrebidMobilePluginRenderer;
+import org.prebid.mobile.configuration.PBSConfig;
 import org.prebid.mobile.core.BuildConfig;
 import org.prebid.mobile.rendering.listeners.SdkInitializationListener;
 import org.prebid.mobile.rendering.mraid.MraidEnv;
+import org.prebid.mobile.rendering.sdk.InitializationNotifier;
 import org.prebid.mobile.rendering.sdk.PrebidContextHolder;
 import org.prebid.mobile.rendering.sdk.SdkInitializer;
 
@@ -87,7 +92,7 @@ public class PrebidMobile {
     /**
      * Tested Google SDK version.
      */
-    public static final String TESTED_GOOGLE_SDK_VERSION = "21.5.0";
+    public static final String TESTED_GOOGLE_SDK_VERSION = "22.5.0";
 
     /**
      * Please use {@link PrebidMobile#setLogLevel(LogLevel)}, this field will become private in next releases.
@@ -121,6 +126,15 @@ public class PrebidMobile {
     private static final Map<String, String> storedBidResponses = new LinkedHashMap<>();
     private static List<ExternalUserId> externalUserIds = new ArrayList<>();
     private static HashMap<String, String> customHeaders = new HashMap<>();
+    private static boolean includeWinners = false;
+    private static boolean includeBidderKeys = false;
+
+    private static final int DEFAULT_BANNER_TIMEOUT = 6 * 1000;
+    private static final int DEFAULT_PRERENDER_TIMEOUT = 30 * 1000;
+
+    private static PBSConfig pbsConfig;
+    private static int creativeFactoryTimeout = DEFAULT_BANNER_TIMEOUT;
+    private static int creativeFactoryTimeoutPreRenderContent = DEFAULT_PRERENDER_TIMEOUT;
 
     private PrebidMobile() {
     }
@@ -224,6 +238,7 @@ public class PrebidMobile {
      * @param listener initialization listener (can be null).
      *                 <p>
      */
+    @MainThread
     public static void initializeSdk(
         @Nullable Context context,
         @Nullable SdkInitializationListener listener
@@ -231,6 +246,7 @@ public class PrebidMobile {
         SdkInitializer.init(context, listener);
     }
 
+    @Deprecated
     public static Context getApplicationContext() {
         return PrebidContextHolder.getContext();
     }
@@ -287,7 +303,7 @@ public class PrebidMobile {
      * Return 'true' if Prebid Rendering SDK is initialized completely
      */
     public static boolean isSdkInitialized() {
-        return PrebidContextHolder.getContext() != null;
+        return PrebidContextHolder.getContext() != null && InitializationNotifier.wereTasksCompletedSuccessfully();
     }
 
     public static LogLevel getLogLevel() {
@@ -354,7 +370,77 @@ public class PrebidMobile {
     public static String getCustomStatusEndpoint() {
         return customStatusEndpoint;
     }
+    public static void setIncludeWinnersFlag(boolean includeWinners) {
+        PrebidMobile.includeWinners = includeWinners;
+    }
 
+    public static boolean getIncludeWinnersFlag() {
+        return PrebidMobile.includeWinners;
+    }
+
+    public static boolean setIncludeBidderKeysFlag(boolean includeBidderKeys) {
+        return PrebidMobile.includeBidderKeys = includeBidderKeys;
+    }
+
+    public static boolean getIncludeBidderKeysFlag() {
+        return PrebidMobile.includeBidderKeys;
+    }
+
+    public static PBSConfig getPbsConfig() {
+        return pbsConfig;
+    }
+
+    public static void setPbsConfig(PBSConfig pbsConfig) {
+        PrebidMobile.pbsConfig = pbsConfig;
+    }
+
+    /**
+     * Priority Policy: PBSConfig > SDKConfig > Default
+     * @return creativeFactoryTimeout in ms
+     */
+    public static int getCreativeFactoryTimeout() {
+        if (pbsConfig != null){
+            if (pbsConfig.getBannerTimeout() != 0) {
+                return pbsConfig.getBannerTimeout();
+            }
+        }
+        return creativeFactoryTimeout;
+    }
+
+    public static void setCreativeFactoryTimeout(int creativeFactoryTimeout) {
+        PrebidMobile.creativeFactoryTimeout = creativeFactoryTimeout;
+    }
+
+    /**
+     * Priority Policy: PBSConfig > SDKConfig > Default
+     * @return creativeFactoryTimeoutPreRender in ms
+     */
+    public static int getCreativeFactoryTimeoutPreRenderContent() {
+        if (pbsConfig != null) {
+            if (pbsConfig.getPreRenderTimeout() != 0) {
+                return pbsConfig.getPreRenderTimeout();
+            }
+        }
+        return creativeFactoryTimeoutPreRenderContent;
+    }
+
+    public static void setCreativeFactoryTimeoutPreRenderContent(int creativeFactoryTimeoutPreRenderContent) {
+        PrebidMobile.creativeFactoryTimeoutPreRenderContent = creativeFactoryTimeoutPreRenderContent;
+    }
+
+    //region PluginRenderer methods
+    public static void registerPluginRenderer(PrebidMobilePluginRenderer prebidMobilePluginRenderer) {
+        PrebidMobilePluginRegister.getInstance().registerPlugin(prebidMobilePluginRenderer);
+    }
+
+    public static void unregisterPluginRenderer(PrebidMobilePluginRenderer prebidMobilePluginRenderer) {
+        PrebidMobilePluginRegister.getInstance().unregisterPlugin(prebidMobilePluginRenderer);
+    }
+
+    public static Boolean containsPluginRenderer(PrebidMobilePluginRenderer prebidMobilePluginRenderer) {
+        return PrebidMobilePluginRegister.getInstance().containsPlugin(prebidMobilePluginRenderer);
+    }
+    //endregion
 
     /**
      * LogLevel for logging control.

@@ -58,10 +58,16 @@
             android:name=".activities.ads.gam.original.GamOriginalApiVideoBannerActivity"
             android:exported="true" />
         <activity
+            android:name=".activities.ads.gam.original.GamOriginalApiMultiformatBannerActivity"
+            android:exported="true" />
+        <activity
             android:name=".activities.ads.gam.original.GamOriginalApiDisplayInterstitialActivity"
             android:exported="true" />
         <activity
             android:name=".activities.ads.gam.original.GamOriginalApiVideoInterstitialActivity"
+            android:exported="true" />
+        <activity
+            android:name=".activities.ads.gam.original.GamOriginalApiMultiformatInterstitialActivity"
             android:exported="true" />
         <activity
             android:name=".activities.ads.gam.original.GamOriginalApiInStreamActivity"
@@ -74,6 +80,12 @@
             android:exported="true" />
         <activity
             android:name=".activities.ads.gam.original.GamOriginalApiNativeInAppActivity"
+            android:exported="true" />
+        <activity
+            android:name=".activities.ads.gam.original.GamOriginalApiMultiformatBannerVideoNativeInAppActivity"
+            android:exported="true" />
+        <activity
+            android:name=".activities.ads.gam.original.GamOriginalApiMultiformatBannerVideoNativeStylesActivity"
             android:exported="true" />
 
         <!-- GAM Rendering -->

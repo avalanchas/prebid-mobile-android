@@ -33,6 +33,7 @@ import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAd.OnNativeAdLoadedListener
 import com.google.android.gms.ads.nativead.NativeCustomFormatAd
 import com.google.android.gms.ads.nativead.NativeCustomFormatAd.OnCustomFormatAdLoadedListener
+import com.google.common.collect.Lists
 import org.prebid.mobile.*
 import org.prebid.mobile.NativeEventTracker.EVENT_TRACKING_METHOD
 import org.prebid.mobile.addendum.AdViewUtils
@@ -44,7 +45,7 @@ class GamOriginalApiNativeInAppActivity : BaseAdActivity() {
 
     companion object {
         const val AD_UNIT_ID = "/21808260008/apollo_custom_template_native_ad_unit"
-        const val CONFIG_ID = "imp-prebid-banner-native-styles"
+        const val CONFIG_ID = "prebid-ita-banner-native-styles"
         const val CUSTOM_FORMAT_ID = "11934135"
         const val TAG = "GamOriginalNativeInApp"
     }
@@ -82,13 +83,7 @@ class GamOriginalApiNativeInAppActivity : BaseAdActivity() {
     }
 
     private fun inflatePrebidNativeAd(ad: PrebidNativeAd, wrapper: ViewGroup) {
-
         val nativeContainer = View.inflate(wrapper.context, R.layout.layout_native, null)
-        ad.registerView(nativeContainer, object : PrebidNativeAdEventListener {
-            override fun onAdClicked() {}
-            override fun onAdImpression() {}
-            override fun onAdExpired() {}
-        })
 
         val icon = nativeContainer.findViewById<ImageView>(R.id.imgIcon)
         ImageUtils.download(ad.iconUrl, icon)
@@ -104,6 +99,8 @@ class GamOriginalApiNativeInAppActivity : BaseAdActivity() {
 
         val cta = nativeContainer.findViewById<Button>(R.id.btnCta)
         cta.text = ad.callToAction
+
+        ad.registerView(nativeContainer, Lists.newArrayList(icon, title, image, description, cta), SafeNativeListener())
 
         wrapper.addView(nativeContainer)
     }
@@ -201,6 +198,16 @@ class GamOriginalApiNativeInAppActivity : BaseAdActivity() {
             e.printStackTrace()
         }
     }
+
+    /**
+     * It's important to use class implementation instead of anonymous object.
+     */
+    private class SafeNativeListener : PrebidNativeAdEventListener {
+        override fun onAdClicked() {}
+        override fun onAdImpression() {}
+        override fun onAdExpired() {}
+    }
+
 
     override fun onDestroy() {
         super.onDestroy()

@@ -17,10 +17,12 @@
 package org.prebid.mobile.rendering.bidding.display;
 
 import android.content.Context;
+
 import org.prebid.mobile.LogUtil;
 import org.prebid.mobile.api.data.AdFormat;
 import org.prebid.mobile.api.exceptions.AdException;
 import org.prebid.mobile.api.rendering.InterstitialView;
+import org.prebid.mobile.api.rendering.PrebidMobileInterstitialControllerInterface;
 import org.prebid.mobile.configuration.AdUnitConfiguration;
 import org.prebid.mobile.rendering.bidding.data.bid.BidResponse;
 import org.prebid.mobile.rendering.bidding.interfaces.InterstitialControllerListener;
@@ -29,21 +31,21 @@ import org.prebid.mobile.rendering.models.AdDetails;
 import org.prebid.mobile.rendering.models.openrtb.bidRequests.MobileSdkPassThrough;
 import org.prebid.mobile.rendering.networking.WinNotifier;
 
-public class InterstitialController {
+public class InterstitialController implements PrebidMobileInterstitialControllerInterface {
 
     private static final String TAG = InterstitialController.class.getSimpleName();
 
     private String impressionEventUrl;
 
     private final InterstitialView bidInterstitialView;
-    private final InterstitialControllerListener listener;
+    private InterstitialControllerListener listener;
     private AdFormat adUnitIdentifierType;
 
-    private final InterstitialViewListener interstitialViewListener = new InterstitialViewListener() {
+    private InterstitialViewListener interstitialViewListener = new InterstitialViewListener() {
         @Override
         public void onAdLoaded(
-            InterstitialView interstitialView,
-            AdDetails adDetails
+                InterstitialView interstitialView,
+                AdDetails adDetails
         ) {
             LogUtil.debug(TAG, "onAdLoaded");
             if (listener != null) {
@@ -100,7 +102,9 @@ public class InterstitialController {
     throws AdException {
         this.listener = listener;
         bidInterstitialView = new InterstitialView(context);
-        bidInterstitialView.setInterstitialViewListener(interstitialViewListener);
+        if (interstitialViewListener != null) {
+            bidInterstitialView.setInterstitialViewListener(interstitialViewListener);
+        }
         bidInterstitialView.setPubBackGroundOpacity(1.0f);
     }
 
@@ -155,6 +159,8 @@ public class InterstitialController {
 
     public void destroy() {
         bidInterstitialView.destroy();
+        listener = null;
+        interstitialViewListener = null;
     }
 
     private void setRenderingControlSettings(

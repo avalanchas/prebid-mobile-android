@@ -13,7 +13,7 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
 
 import org.prebid.mobile.RewardedVideoAdUnit;
 import org.prebid.mobile.Signals;
-import org.prebid.mobile.VideoBaseAdUnit;
+import org.prebid.mobile.VideoParameters;
 import org.prebid.mobile.javademo.activities.BaseAdActivity;
 
 import java.util.Collections;
@@ -21,7 +21,7 @@ import java.util.Collections;
 public class GamOriginalApiVideoRewarded extends BaseAdActivity {
 
     private static final String AD_UNIT_ID = "/21808260008/prebid-demo-app-original-api-video-interstitial";
-    private static final String CONFIG_ID = "imp-prebid-video-rewarded-320-480-original-api";
+    private static final String CONFIG_ID = "prebid-ita-video-rewarded-320-480-original-api";
 
     private RewardedVideoAdUnit adUnit;
 
@@ -35,11 +35,10 @@ public class GamOriginalApiVideoRewarded extends BaseAdActivity {
     private void createAd() {
         adUnit = new RewardedVideoAdUnit(CONFIG_ID);
 
-        VideoBaseAdUnit.Parameters parameters = new VideoBaseAdUnit.Parameters();
-        parameters.setMimes(Collections.singletonList("video/mp4"));
+        VideoParameters parameters = new VideoParameters(Collections.singletonList("video/mp4"));
         parameters.setProtocols(Collections.singletonList(Signals.Protocols.VAST_2_0));
         parameters.setPlaybackMethod(Collections.singletonList(Signals.PlaybackMethod.AutoPlaySoundOff));
-        adUnit.setParameters(parameters);
+        adUnit.setVideoParameters(parameters);
 
         final AdManagerAdRequest.Builder builder = new AdManagerAdRequest.Builder();
         adUnit.fetchDemand(builder, resultCode -> {

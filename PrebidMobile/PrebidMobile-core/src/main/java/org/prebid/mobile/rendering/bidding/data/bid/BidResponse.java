@@ -27,7 +27,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.prebid.mobile.LogUtil;
 import org.prebid.mobile.PrebidMobile;
-import org.prebid.mobile.api.data.FetchDemandResult;
 import org.prebid.mobile.configuration.AdUnitConfiguration;
 import org.prebid.mobile.rendering.models.openrtb.bidRequests.Ext;
 import org.prebid.mobile.rendering.models.openrtb.bidRequests.MobileSdkPassThrough;
@@ -41,6 +40,8 @@ import java.util.List;
 public class BidResponse {
     private final static String TAG = BidResponse.class.getSimpleName();
     public static final String KEY_CACHE_ID = "hb_cache_id_local";
+    public static final String KEY_RENDERER_NAME = "rendererName";
+    public static final String KEY_RENDERER_VERSION = "rendererVersion";
 
     // ID of the bid request to which this is a response
     private String id;
@@ -65,6 +66,7 @@ public class BidResponse {
     private boolean usesCache;
     private String parseError;
     private String winningBidJson;
+    private AdUnitConfiguration adUnitConfiguration;
 
     private long creationTime;
 
@@ -76,6 +78,8 @@ public class BidResponse {
     ) {
         seatbids = new ArrayList<>();
         usesCache = adUnitConfiguration.isOriginalAdUnit() || PrebidMobile.isUseCacheForReportingWithRenderingApi();
+        this.adUnitConfiguration = adUnitConfiguration;
+
         parseJson(json);
     }
 
@@ -118,6 +122,7 @@ public class BidResponse {
         return nbr;
     }
 
+    @Nullable
     public String getWinningBidJson() {
         return winningBidJson;
     }
@@ -153,11 +158,7 @@ public class BidResponse {
 
             MobileSdkPassThrough bidMobilePassThrough = null;
             Bid winningBid = getWinningBid();
-            if (winningBid == null) {
-                hasParseError = true;
-                parseError = FetchDemandResult.NO_BIDS_MESSAGE;
-                LogUtil.info(TAG, parseError);
-            } else {
+            if (winningBid != null) {
                 bidMobilePassThrough = winningBid.getMobileSdkPassThrough();
             }
 
@@ -223,6 +224,26 @@ public class BidResponse {
         return false;
     }
 
+    public String getPreferredPluginRendererName() {
+        Bid bid = getWinningBid();
+        if (bid != null) {
+            return bid.getPrebid().getMeta().get(KEY_RENDERER_NAME);
+        }
+        return null;
+    }
+
+    public String getPreferredPluginRendererVersion() {
+        Bid bid = getWinningBid();
+        if (bid != null) {
+            return bid.getPrebid().getMeta().get(KEY_RENDERER_VERSION);
+        }
+        return null;
+    }
+
+    public AdUnitConfiguration getAdUnitConfiguration() {
+        return adUnitConfiguration;
+    }
+
     private boolean hasWinningKeywords(Prebid prebid) {
         if (prebid == null || prebid.getTargeting().isEmpty()) {
             return false;
@@ -264,6 +285,19 @@ public class BidResponse {
             return prebid.getImpEventUrl();
         }
         return null;
+    }
+
+    @Nullable
+    public Integer getExpirationTimeSeconds() {
+        Bid winningBid = getWinningBid();
+        if (winningBid == null) return null;
+
+        int expirationTime = winningBid.getExp();
+        if (expirationTime <= 0) {
+            return null;
+        }
+
+        return expirationTime;
     }
 
 }

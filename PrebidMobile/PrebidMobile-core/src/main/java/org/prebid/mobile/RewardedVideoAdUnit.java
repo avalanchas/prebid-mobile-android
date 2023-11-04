@@ -17,14 +17,17 @@
 package org.prebid.mobile;
 
 import androidx.annotation.NonNull;
+
 import org.prebid.mobile.api.data.AdFormat;
 import org.prebid.mobile.rendering.models.AdPosition;
 import org.prebid.mobile.rendering.models.PlacementType;
 
+import java.util.EnumSet;
+
 public class RewardedVideoAdUnit extends VideoBaseAdUnit {
 
     public RewardedVideoAdUnit(@NonNull String configId) {
-        super(configId, AdFormat.VAST);
+        super(configId, EnumSet.of(AdFormat.VAST));
         configuration.setRewarded(true);
         configuration.setAdPosition(AdPosition.FULLSCREEN);
         configuration.setPlacementType(PlacementType.INTERSTITIAL);

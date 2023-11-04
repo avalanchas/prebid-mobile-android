@@ -18,8 +18,6 @@ package org.prebid.mobile.renderingtestapp.plugplay.bidding.gam.original
 
 import android.util.Log
 import android.view.View
-import android.widget.Button
-import android.widget.RelativeLayout
 import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.LoadAdError
@@ -33,7 +31,6 @@ import org.prebid.mobile.renderingtestapp.R
 import org.prebid.mobile.renderingtestapp.databinding.FragmentBiddingBannerVideoBinding
 import org.prebid.mobile.renderingtestapp.plugplay.config.AdConfiguratorDialogFragment
 import org.prebid.mobile.renderingtestapp.utils.BaseEvents
-import org.prebid.mobile.renderingtestapp.widgets.EventCounterView
 
 class GamOriginalOutstreamFragment : AdFragment() {
     companion object {
